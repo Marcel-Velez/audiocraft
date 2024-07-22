@@ -160,7 +160,7 @@ class BaseGenModel(ABC):
         attributes, prompt_tokens = self._prepare_tokens_and_attributes(descriptions, None)
         assert prompt_tokens is None
         tokens = self._generate_tokens(attributes, prompt_tokens, progress, stop_layer_idx=stop_layer_idx,
-                                       linear_layer=linear)
+                                       linear_layer=linear_layer)
         if return_tokens:
             return self.generate_audio(tokens), tokens
         return self.generate_audio(tokens)
