@@ -16,6 +16,7 @@ import typing as tp
 
 import omegaconf
 import torch
+import torch.nn as nn
 
 from .encodec import CompressionModel
 from .lm import LMModel
