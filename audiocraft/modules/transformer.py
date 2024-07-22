@@ -691,6 +691,12 @@ class StreamingTransformer(StreamingModule):
             raise ValueError(f"Checkpointing method {method} is unknown.")
 
     def forward(self, x: torch.Tensor, *args, **kwargs):
+        stop_layer_idx = kwargs.get('stop_layer_idx', None)
+        linear_layer = kwargs.get('linear_layer', None)
+
+        if stop_layer_idx is not None and linear_layer is not None:
+            return self.forward_until_layer(x, stop_layer_idx, linear_layer, *args, **kwargs)
+
         B, T, C = x.shape
 
         if 'offsets' in self._streaming_state:
@@ -712,6 +718,38 @@ class StreamingTransformer(StreamingModule):
 
         return x
 
+    def forward_until_layer(self, x: torch.Tensor, stop_layer_idx: int, linear_layer: nn.Linear, *args, **kwargs):
+        B, T, C = x.shape
+
+        if 'offsets' in self._streaming_state:
+            offsets = self._streaming_state['offsets']
+        else:
+            offsets = torch.zeros(B, dtype=torch.long, device=x.device)
+
+        if self.positional_embedding in ['sin', 'sin_rope']:
+            positions = torch.arange(T, device=x.device).view(1, -1, 1)
+            positions = positions + offsets.view(-1, 1, 1)
+            pos_emb = create_sin_embedding(positions, C, max_period=self.max_period, dtype=x.dtype)
+            x = x + self.positional_scale * pos_emb
+
+        # Forward pass until the stop_layer_idx
+        for idx, layer in enumerate(self.layers):
+            if idx == stop_layer_idx:
+                break
+            x = self._apply_layer(layer, x, *args, **kwargs)
+
+        # Apply the linear layer
+        x = linear_layer(x)
+
+        # Skip the remaining layers and continue with the normal forward pass
+        for idx in range(stop_layer_idx + 1, len(self.layers)):
+            pass
+
+        if self._is_streaming:
+            self._streaming_state['offsets'] = offsets + T
+
+        return x
+    
     def make_optim_group(self):
         group = {"params": list(self.parameters())}
         if self.lr is not None:
