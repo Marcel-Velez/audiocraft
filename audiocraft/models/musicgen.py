@@ -13,6 +13,7 @@ import typing as tp
 import warnings
 
 import torch
+import torch.nn as nn
 
 from .encodec import CompressionModel
 from .genmodel import BaseGenModel
@@ -219,7 +220,8 @@ class MusicGen(BaseGenModel):
         return attributes, prompt_tokens
 
     def _generate_tokens(self, attributes: tp.List[ConditioningAttributes],
-                         prompt_tokens: tp.Optional[torch.Tensor], progress: bool = False) -> torch.Tensor:
+                         prompt_tokens: tp.Optional[torch.Tensor], progress: bool = False,
+                         stop_layer_idx:int = None, linear_layer: nn.Module = None) -> torch.Tensor:
         """Generate discrete audio tokens given audio prompt and/or conditions.
 
         Args:
@@ -255,7 +257,8 @@ class MusicGen(BaseGenModel):
             with self.autocast:
                 gen_tokens = self.lm.generate(
                     prompt_tokens, attributes,
-                    callback=callback, max_gen_len=total_gen_len, **self.generation_params)
+                    callback=callback, max_gen_len=total_gen_len, stop_layer_idx=stop_layer_idx,
+                    linear_layer=linear_layer, **self.generation_params)
 
         else:
             # now this gets a bit messier, we need to handle prompts,
@@ -295,7 +298,8 @@ class MusicGen(BaseGenModel):
                 with self.autocast:
                     gen_tokens = self.lm.generate(
                         prompt_tokens, attributes,
-                        callback=callback, max_gen_len=max_gen_len, **self.generation_params)
+                        callback=callback, max_gen_len=max_gen_len, stop_layer_idx=stop_layer_idx,
+                        linear_layer=linear_layer, **self.generation_params)
                 if prompt_tokens is None:
                     all_tokens.append(gen_tokens)
                 else:
