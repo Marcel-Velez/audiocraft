@@ -734,9 +734,9 @@ class StreamingTransformer(StreamingModule):
 
         # Forward pass until the stop_layer_idx
         for idx, layer in enumerate(self.layers):
+            x = self._apply_layer(layer, x, *args, **kwargs)
             if idx == stop_layer_idx:
                 break
-            x = self._apply_layer(layer, x, *args, **kwargs)
 
         # Apply the linear layer
         x = linear_layer(x)
@@ -749,7 +749,7 @@ class StreamingTransformer(StreamingModule):
             self._streaming_state['offsets'] = offsets + T
 
         return x
-    
+
     def make_optim_group(self):
         group = {"params": list(self.parameters())}
         if self.lr is not None:
