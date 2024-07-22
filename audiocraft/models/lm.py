@@ -328,7 +328,9 @@ class LMModel(StreamingModule):
                            top_k: int = 0,
                            top_p: float = 0.0,
                            cfg_coef: tp.Optional[float] = None,
-                           two_step_cfg: tp.Optional[bool] = None) -> torch.Tensor:
+                           two_step_cfg: tp.Optional[bool] = None,
+                           stop_layer_idx: int = None,
+                           linear_layer: nn.Module = None) -> torch.Tensor:
         """Sample next token from the model given a sequence and a set of conditions. The model supports
         multiple sampling strategies (greedy sampling, softmax, top-k, top-p...).
 
@@ -353,10 +355,12 @@ class LMModel(StreamingModule):
         if two_step_cfg and cfg_conditions != {}:
             assert isinstance(cfg_conditions, tuple), type(cfg_conditions)
             condition_tensors, null_condition_tensors = cfg_conditions
-            cond_logits = model(sequence, conditions=[], condition_tensors=condition_tensors)
+            cond_logits = model(sequence, conditions=[], condition_tensors=condition_tensors, stop_layer_idx=stop_layer_idx,
+                                linear_layer = linear_layer)
             state = self.get_streaming_state()
             self.set_streaming_state(unconditional_state)
-            uncond_logits = model(sequence, conditions=[], condition_tensors=null_condition_tensors)
+            uncond_logits = model(sequence, conditions=[], condition_tensors=null_condition_tensors, stop_layer_idx= stop_layer_idx,
+                                  linear_layer = linear_layer)
             unconditional_state.update(self.get_streaming_state())
             self.set_streaming_state(state)
             logits = uncond_logits + (cond_logits - uncond_logits) * self.cfg_coef
@@ -368,7 +372,7 @@ class LMModel(StreamingModule):
                 sequence = torch.cat([sequence, sequence], dim=0)
             all_logits = model(
                 sequence,
-                conditions=[], condition_tensors=condition_tensors)
+                conditions=[], condition_tensors=condition_tensors, stop_layer_idx=stop_layer_idx, linear_layer = linear_layer)
             if condition_tensors:
                 cond_logits, uncond_logits = all_logits.split(B, dim=0)  # [B, K, T, card]
                 logits = uncond_logits + (cond_logits - uncond_logits) * cfg_coef
@@ -407,6 +411,8 @@ class LMModel(StreamingModule):
                  remove_prompts: bool = False,
                  check: bool = False,
                  callback: tp.Optional[tp.Callable[[int, int], None]] = None,
+                 stop_layer_idx: int = None,
+                 linear_layer: tp.Optional[nn.Module] = None,
                  **kwargs) -> torch.Tensor:
         """Generate tokens sampling from the model given a prompt or unconditionally. Generation can
         be performed in a greedy fashion or using sampling with top K and top P strategies.
@@ -509,7 +515,7 @@ class LMModel(StreamingModule):
                 # sample next token from the model, next token shape is [B, K, 1]
                 next_token = self._sample_next_token(
                     curr_sequence, cfg_conditions, unconditional_state, use_sampling, temp, top_k, top_p,
-                    cfg_coef=cfg_coef, two_step_cfg=two_step_cfg)
+                    cfg_coef=cfg_coef, two_step_cfg=two_step_cfg, stop_layer_idx=stop_layer_idx, linear_layer=linear_layer)
                 # ensure the tokens that should be masked are properly set to special_token_id
                 # as the model never output special_token_id
                 valid_mask = mask[..., offset:offset+1].expand(B, -1, -1)
