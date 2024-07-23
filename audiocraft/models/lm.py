@@ -220,7 +220,9 @@ class LMModel(StreamingModule):
     def forward(self, sequence: torch.Tensor,
                 conditions: tp.List[ConditioningAttributes],
                 condition_tensors: tp.Optional[ConditionTensors] = None,
-                stage: int = -1) -> torch.Tensor:
+                stage: int = -1,
+                stop_layer_idx: int = None,
+                linear_layer: torch.nn.Module = None) -> torch.Tensor:
         """Apply language model on sequence and conditions.
         Given a tensor of sequence of shape [B, K, S] with K the number of codebooks and
         S the sequence steps, return the logits with shape [B, card, K, S].
@@ -255,7 +257,8 @@ class LMModel(StreamingModule):
         input_, cross_attention_input = self.fuser(input_, condition_tensors)
 
         out = self.transformer(input_, cross_attention_src=cross_attention_input,
-                               src_mask=(self.attn_mask_per_stage[stage] if stage >= 0 else None))
+                               src_mask=(self.attn_mask_per_stage[stage] if stage >= 0 else None),
+                               stop_layer_idx=stop_layer_idx, linear_layer=linear_layer)
         if self.out_norm:
             out = self.out_norm(out)
         logits = torch.stack([self.linears[k](out) for k in range(K)], dim=1)  # [B, K, S, card]
