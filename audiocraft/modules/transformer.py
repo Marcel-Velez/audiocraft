@@ -690,9 +690,10 @@ class StreamingTransformer(StreamingModule):
         else:
             raise ValueError(f"Checkpointing method {method} is unknown.")
 
-    def forward(self, x: torch.Tensor, *args, **kwargs):
-        stop_layer_idx = kwargs.get('stop_layer_idx', None)
-        linear_layer = kwargs.get('linear_layer', None)
+    def forward(self, x: torch.Tensor, stop_layer_idx: int=None, linear_layer: nn.Module=None,
+                *args, **kwargs):
+        # stop_layer_idx = kwargs.get('stop_layer_idx', None)
+        # linear_layer = kwargs.get('linear_layer', None)
 
         if stop_layer_idx is not None and linear_layer is not None:
             return self.forward_until_layer(x, stop_layer_idx, linear_layer, *args, **kwargs)
