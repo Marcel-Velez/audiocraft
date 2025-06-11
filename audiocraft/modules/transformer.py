@@ -550,7 +550,7 @@ class StreamingTransformerLayer(nn.TransformerEncoderLayer):
     def forward(self, src: torch.Tensor, src_mask: tp.Optional[torch.Tensor] = None,  # type: ignore
                 src_key_padding_mask: tp.Optional[torch.Tensor] = None,
                 cross_attention_src: tp.Optional[torch.Tensor] = None,
-               stop_layer_idx: int = None):
+               stop_layer_idx: int = None, linear_layer = None):
         if self.cross_attention is None:
             assert cross_attention_src is None
         else:
